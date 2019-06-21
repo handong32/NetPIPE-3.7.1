@@ -300,7 +300,7 @@ struct argstruct
 #if defined(USE_VOLATILE_RPTR)
     volatile                /* use volatile if polling on buffer in module   */
 #endif
-    char     *r_ptr;        /* Pointer to current location in send buffer    */
+    char     *r_ptr;        /* Pointer to current location in receive buffer */
     char     *r_ptr_saved;  /* Pointer for saving value of r_ptr             */
     char     *s_buff;       /* Aligned send buffer                           */
     char     *s_buff_orig;  /* Original unaligned send buffer                */
