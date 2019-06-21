@@ -59,14 +59,17 @@ int main(int argc, char **argv)
    
     ArgStruct   args;           /* Arguments for all the calls               */
 
-    double      t, t0, t1, t2,  /* Time variables                            */
+    double      t, t0, t1, t2, ttotal,  /* Time variables                            */
                 tlast,          /* Time for the last transmission            */
-                latency;        /* Network message latency                   */
+                latency,        /* Network message latency                   */
+                tput;
 
     Data        bwdata[NSAMP];  /* Bandwidth curve data                      */
 
     int         integCheck=0;   /* Integrity check                           */
-
+    unsigned long long int totalbufflen = 0;
+    int randrun = 0;
+    
     /* Initialize vars that may change from default due to arguments */
 
     strcpy(s, "np.out");   /* Default output file */
@@ -74,7 +77,7 @@ int main(int argc, char **argv)
     /* Let modules initialize related vars, and possibly call a library init
        function that requires argc and argv */
 
-
+    srand(0xdeadbeef);
     Init(&args, &argc, &argv);   /* This will set args.tr and args.rcv */
 
     args.preburst = 0; /* Default to not bursting preposted receives */
@@ -97,7 +100,7 @@ int main(int argc, char **argv)
 #if ! defined(TCGMSG)
 
     /* Parse the arguments. See Usage for description */
-    while ((c = getopt(argc, argv, "AXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:")) != -1)
+    while ((c = getopt(argc, argv, "xAXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:")) != -1)
     {
         switch(c)
         {
@@ -362,8 +365,11 @@ int main(int argc, char **argv)
 		      printf("Enableing debug wait!\n");
 		      printf("Attach to pid %d and set debug_wait to 0 to conttinue\n", getpid());
 		      break;
-
-            default: 
+	case 'x':
+	  randrun = 1;
+	  break;
+	  
+	    default: 
                      PrintUsage(); 
                      exit(-12);
        }
@@ -550,12 +556,18 @@ int main(int argc, char **argv)
      RecvRepeat(&args, &nrepeat);
    }
 
-   args.bufflen = start;
-     
-   if( args.tr )
-     fprintf(stderr,"%3d: %7d bytes %6d times --> ",
-	     n,args.bufflen,nrepeat);
-
+   if (randrun) {
+     args.bufflen = (rand()%(end-start))+start;
+     if( args.tr )
+       fprintf(stderr,"%3d: random bytes between (%d, %d) %6d times --> ",
+	       n, start, end, nrepeat);
+   } else {
+     args.bufflen = start;
+   
+     if( args.tr )
+       fprintf(stderr,"%3d: %7d bytes %6d times --> ",
+	       n,args.bufflen,nrepeat);
+   }
    /* this isn't truly set up for offsets yet */
    /* Size of an aligned memory block including trailing padding */
    len_buf_align = args.bufflen;
@@ -573,7 +585,7 @@ int main(int argc, char **argv)
    args.s_ptr = args.s_buff+args.soffset;
    
    bwdata[n].t = LONGTIME;
-   
+   tput = 0;
    /* Finally, we get to transmit or receive and time */
    /* NOTE: If a module is running that uses only one process (e.g.
     * memcpy), we assume that it will always have the args.tr flag
@@ -589,15 +601,25 @@ int main(int argc, char **argv)
        block.
      */
      for (i = 0; i < TRIALS; i++)
-     {                    
+     {
+       if(randrun) srand(0xdeadbeef);
        /* Flush the cache using the dummy buffer */
        if (!args.cache)
 	 flushcache(memcache, MEMSIZE/sizeof(int));
 
        Sync(&args);
+       totalbufflen = 0;
        t0 = When();
        for (j = 0; j < nrepeat; j++)
        {
+	 if(randrun) {
+	   args.bufflen = (rand()%(end-start))+start;
+	   len_buf_align = args.bufflen;
+	   if(bufalign != 0)
+	     len_buf_align += bufalign - args.bufflen % bufalign;
+	 }
+	 totalbufflen += args.bufflen;
+	 
 	 SendData(&args);
 	 if (!streamopt)
 	 {
@@ -611,17 +633,20 @@ int main(int argc, char **argv)
 	 if (!args.cache)
 	   AdvanceSendPtr(&args, len_buf_align);
        }
-
+       
        /* t is the 1-directional trasmission time */
-       t = (When() - t0)/ nrepeat;
-       t /= 2; /* Normal ping-pong */
+       /* double tmpt = When();  */
+       /* t = (tmpt - t0)/ nrepeat; */
+       /* t /= 2; /\* Normal ping-pong *\/ */
+       ttotal = (When() - t0) / 2;
        Reset(&args);
 
 /* NOTE: NetPIPE does each data point TRIALS times, bouncing the message
  * nrepeats times for each trial, then reports the lowest of the TRIALS
  * times.  -Dave Turner
  */
-       bwdata[n].t = MIN(bwdata[n].t, t);
+       //bwdata[n].t = MIN(bwdata[n].t, t);
+       tput = MAX(tput, (totalbufflen*CHARSIZE) / (ttotal * 1024 * 1024));
      }
    }
    else if( args.rcv )
@@ -633,6 +658,7 @@ int main(int argc, char **argv)
      */
      for (i = 0; i < (integCheck ? 1 : TRIALS); i++)
      {
+       if(randrun) srand(0xdeadbeef);
        /* Flush the cache using the dummy buffer */
        if (!args.cache)
 	 flushcache(memcache, MEMSIZE/sizeof(int));
@@ -642,6 +668,12 @@ int main(int argc, char **argv)
        t0 = When();
        for (j = 0; j < nrepeat; j++)
        {
+	 if(randrun) {
+	   args.bufflen = (rand()%(end-start))+start;
+	   len_buf_align = args.bufflen;
+	   if(bufalign != 0)
+	     len_buf_align += bufalign - args.bufflen % bufalign;
+	 }
 	 RecvData(&args);
 
 	 if (!args.cache)
@@ -668,16 +700,22 @@ int main(int argc, char **argv)
     * zero second latency after doing the math.  Protect against
     * this.
     */
-   if(bwdata[n].t == 0.0) {
+   /*if(bwdata[n].t == 0.0) {
      bwdata[n].t = 0.000001;
-   }
+     }*/
             
-   tlast = bwdata[n].t;
+   /*tlast = bwdata[n].t;
    bwdata[n].bits = args.bufflen * CHARSIZE * (1+args.bidir);
    bwdata[n].bps = bwdata[n].bits / (bwdata[n].t * 1024 * 1024);
    bwdata[n].repeat = nrepeat;
-            
-   if (args.tr)
+   */
+   if (args.tr) {
+     fprintf(stderr, " %8.2lf Mbps\n", tput);
+     fprintf(out,"%8lld %8.2lf %12.8lf",
+	     totalbufflen, tput, 0.0);
+   }
+   
+   /*if (args.tr)
    {
      if(integCheck) {
        fprintf(out,"%8d %d", bwdata[n].bits / 8, nrepeat);
@@ -689,14 +727,14 @@ int main(int argc, char **argv)
      }
      fprintf(out, "\n");
      fflush(out);
-   }
+     }*/
     
    /* Free using original buffer addresses since we may have aligned
       r_buff and s_buff */
    if (args.cache)
      FreeBuff(args.r_buff_orig, NULL);
             
-   if ( args.tr ) {
+   /*if ( args.tr ) {
      if(integCheck) {
        fprintf(stderr, " Integrity check passed\n");
 
@@ -704,7 +742,7 @@ int main(int argc, char **argv)
        fprintf(stderr," %8.2lf Mbps in %10.2lf usec\n", 
 	       bwdata[n].bps, tlast*1.0e6);
      }
-   }
+     }*/
  
    /* Free using original buffer addresses since we may have aligned
       r_buff and s_buff */
