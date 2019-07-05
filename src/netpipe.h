@@ -40,7 +40,7 @@
   #define  TRIALS             7
   #define  RUNTM              0.25
 #else
-  #define  TRIALS             3
+  #define  TRIALS             1
   #define  RUNTM              0.10
 #endif
 

@@ -51,11 +51,11 @@ int main(int argc, char **argv)
                 inc=0,          /* Increment value                           */
                 perturbation=DEFPERT, /* Perturbation value                  */
                 pert,
-                start= 1,       /* Starting value for signature curve        */
+                start= 64,       /* Starting value for signature curve        */
                 end=MAXINT,     /* Ending value for signature curve          */
                 streamopt=0,    /* Streaming mode flag                       */
                 reset_connection,/* Reset the connection between trials      */
-		debug_wait=0;	/* spin and wait for a debugger		     */
+                debug_wait=0, msgsize;	/* spin and wait for a debugger		     */
    
     ArgStruct   args;           /* Arguments for all the calls               */
 
@@ -68,16 +68,16 @@ int main(int argc, char **argv)
 
     int         integCheck=0;   /* Integrity check                           */
     unsigned long long int totalbufflen = 0;
-    int randrun = 0;
+    int consecutive_run = 0;
     
     /* Initialize vars that may change from default due to arguments */
 
-    strcpy(s, "np.out");   /* Default output file */
+    //strcpy(s, "np.out");   /* Default output file */
 
     /* Let modules initialize related vars, and possibly call a library init
        function that requires argc and argv */
 
-    srand(0xdeadbeef);
+    //srand(0xdeadbeef);
     Init(&args, &argc, &argv);   /* This will set args.tr and args.rcv */
 
     args.preburst = 0; /* Default to not bursting preposted receives */
@@ -131,7 +131,7 @@ int main(int argc, char **argv)
                       break;
 
             case 'B': if(integCheck == 1) {
-                        fprintf(stderr, "Integrity check not supported with prepost burst\n");
+                        fprintf(stdout, "Integrity check not supported with prepost burst\n");
                         exit(-1);
                       }
                       args.preburst = 1;
@@ -169,7 +169,7 @@ int main(int argc, char **argv)
             case 'l': start = atoi(optarg);
                       if (start < 1)
                       {
-                        fprintf(stderr,"Need a starting value >= 1\n");
+                        fprintf(stdout,"Need a starting value >= 1\n");
                         exit(0);
                       }
                       break;
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
 #endif
 
             case 'i': if(args.preburst == 1) {
-                        fprintf(stderr, "Integrity check not supported with prepost burst\n");
+                        fprintf(stdout, "Integrity check not supported with prepost burst\n");
                         exit(-1);
                       }
                       integCheck = 1;
@@ -239,12 +239,12 @@ int main(int argc, char **argv)
                       break;
 
             case 'S': args.syncflag=1;
-                      fprintf(stderr,"Using synchronous sends\n");
+                      fprintf(stdout,"Using synchronous sends\n");
                       break;
 #endif
 #if defined(MPI2)
             case 'g': if(args.prot.no_fence == 1) {
-                        fprintf(stderr, "-f cannot be used with -g\n");
+                        fprintf(stdout, "-f cannot be used with -g\n");
                         exit(-1);
                       } 
                       args.prot.use_get = 1;
@@ -252,7 +252,7 @@ int main(int argc, char **argv)
                       break;
 
             case 'f': if(args.prot.use_get == 1) {
-                         fprintf(stderr, "-f cannot be used with -g\n");
+                         fprintf(stdout, "-f cannot be used with -g\n");
                          exit(-1);
                       }
                       args.prot.no_fence = 1;
@@ -274,7 +274,7 @@ int main(int argc, char **argv)
                         case 4096: args.prot.ib_mtu = MTU4096;
                           break;
                         default: 
-                          fprintf(stderr, "Invalid MTU size, must be one of "
+                          fprintf(stdout, "Invalid MTU size, must be one of "
                                           "256, 512, 1024, 2048, 4096\n");
                           exit(-1);
                       }
@@ -294,7 +294,7 @@ int main(int argc, char **argv)
                         case 4096: args.prot.ib_mtu = IBV_MTU_4096;
                           break;
                         default: 
-                          fprintf(stderr, "Invalid MTU size, must be one of "
+                          fprintf(stdout, "Invalid MTU size, must be one of "
                                           "256, 512, 1024, 2048, 4096\n");
                           exit(-1);
                       }
@@ -320,7 +320,7 @@ int main(int argc, char **argv)
                          printf("Using RDMA Write communications with immediate data\n");
                          args.prot.commtype = NP_COMM_RDMAWRITE_WITH_IMM;
                       } else {
-                         fprintf(stderr, "Invalid transfer type "
+                         fprintf(stdout, "Invalid transfer type "
                                  "specified, please choose one of:\n\n"
                                  "\tsend_recv\t\tUse Send/Receive communications\t(default)\n"
                                  "\tsend_recv_with_imm\tSame as above with immediate data\n"
@@ -340,7 +340,7 @@ int main(int argc, char **argv)
                          printf("Using VAPI event completion\n");
                          args.prot.comptype = NP_COMP_EVENT;
                       } else {
-                         fprintf(stderr, "Invalid completion type specified, "
+                         fprintf(stdout, "Invalid completion type specified, "
                                  "please choose one of:\n\n"
                                  "\tlocal_poll\tWait for last byte of data\t(default)\n"
                                  "\tvapi_poll\tUse VAPI polling function\n"
@@ -366,7 +366,7 @@ int main(int argc, char **argv)
 		      printf("Attach to pid %d and set debug_wait to 0 to conttinue\n", getpid());
 		      break;
 	case 'x':
-	  randrun = 1;
+	  consecutive_run = 1;
 	  break;
 	  
 	    default: 
@@ -382,14 +382,14 @@ int main(int argc, char **argv)
 
 #if defined(OPENIB) || defined(INFINIBAND)
    asyncReceive = 1;
-   fprintf(stderr, "Preposting asynchronous receives (required for Infiniband)\n");
+   fprintf(stdout, "Preposting asynchronous receives (required for Infiniband)\n");
    if(args.bidir && (
           (args.cache && args.prot.commtype == NP_COMM_RDMAWRITE) || /* rdma_write only works with no-cache mode */
           (!args.preburst && args.prot.commtype != NP_COMM_RDMAWRITE) || /* anything besides rdma_write requires prepost burst */
           (args.preburst && args.prot.comptype == NP_COMP_LOCALPOLL && args.cache) || /* preburst with local polling in cache mode doesn't work */
           0)) {
 
-      fprintf(stderr, 
+      fprintf(stdout, 
          "\n"
          "Bi-directional mode currently only works with a subset of the\n"
          "Infiniband options. Restrictions are:\n"
@@ -414,7 +414,7 @@ int main(int argc, char **argv)
 
    if (start > end)
    {
-       fprintf(stderr, "Start MUST be LESS than end\n");
+       fprintf(stdout, "Start MUST be LESS than end\n");
        exit(420132);
    }
    args.nbuff = TRIALS;
@@ -446,11 +446,11 @@ int main(int argc, char **argv)
 
    if( args.tr )                     /* Primary transmitter */
    {
-       if ((out = fopen(s, "w")) == NULL)
+     /*if ((out = fopen(s, "w")) == NULL)
        {
-           fprintf(stderr,"Can't open %s for output\n", s);
+           fprintf(stdout,"Can't open %s for output\n", s);
            exit(1);
-       }
+	   }*/
    }
    else out = stdout;
 
@@ -541,7 +541,7 @@ int main(int argc, char **argv)
     * Main loop of benchmark *
     **************************/
    
-   if( args.tr ) fprintf(stderr,"Now starting the main loop\n");
+   if( args.tr ) fprintf(stdout,"Now starting the main loop\n");
 
    Sync(&args);    /* Sync to prevent race condition in armci module */
    
@@ -556,16 +556,16 @@ int main(int argc, char **argv)
      RecvRepeat(&args, &nrepeat);
    }
 
-   if (randrun) {
-     args.bufflen = (rand()%(end-start))+start;
+   if (consecutive_run) {
+     args.bufflen = start;
      if( args.tr )
-       fprintf(stderr,"%3d: random bytes between (%d, %d) %6d times --> ",
+       fprintf(stdout,"%3d: consecutive bytes between (%d, %d) %d times\n",
 	       n, start, end, nrepeat);
    } else {
      args.bufflen = start;
    
      if( args.tr )
-       fprintf(stderr,"%3d: %7d bytes %6d times --> ",
+       fprintf(stdout,"%3d: %7d bytes %6d times -->\n",
 	       n,args.bufflen,nrepeat);
    }
    /* this isn't truly set up for offsets yet */
@@ -600,100 +600,103 @@ int main(int argc, char **argv)
        if we are not streaming, expect the receiver to return each
        block.
      */
-     for (i = 0; i < TRIALS; i++)
+     for (msgsize=start; msgsize < end; msgsize++)
      {
-       if(randrun) srand(0xdeadbeef);
-       /* Flush the cache using the dummy buffer */
-       if (!args.cache)
-	 flushcache(memcache, MEMSIZE/sizeof(int));
-
-       Sync(&args);
-       totalbufflen = 0;
-       t0 = When();
-       for (j = 0; j < nrepeat; j++)
+       for (i = 0; i < TRIALS; i++)
        {
-	 if(randrun) {
-	   args.bufflen = (rand()%(end-start))+start;
+	 /* Flush the cache using the dummy buffer */
+	 if (!args.cache)
+	   flushcache(memcache, MEMSIZE/sizeof(int));
+
+	 Sync(&args);
+	 totalbufflen = 0;
+	 t0 = When();
+	 for (j = 0; j < nrepeat; j++)
+	 {
+	   args.bufflen = msgsize;
 	   len_buf_align = args.bufflen;
 	   if(bufalign != 0)
 	     len_buf_align += bufalign - args.bufflen % bufalign;
-	 }
-	 totalbufflen += args.bufflen;
+	   
+	   totalbufflen += args.bufflen;
 	 
-	 SendData(&args);
-	 if (!streamopt)
-	 {
-	   RecvData(&args);
-	   if(!args.cache)
-	     AdvanceRecvPtr(&args, len_buf_align);
+	   SendData(&args);
+	   if (!streamopt)
+	   {
+	     RecvData(&args);
+	     if(!args.cache)
+	       AdvanceRecvPtr(&args, len_buf_align);
+	   }
+	   /* Wait to advance send pointer in case RecvData uses
+	    * it (e.g. memcpy module).
+	    */
+	   if (!args.cache)
+	     AdvanceSendPtr(&args, len_buf_align);
 	 }
-	 /* Wait to advance send pointer in case RecvData uses
-	  * it (e.g. memcpy module).
-	  */
-	 if (!args.cache)
-	   AdvanceSendPtr(&args, len_buf_align);
-       }
        
-       /* t is the 1-directional trasmission time */
-       /* double tmpt = When();  */
-       /* t = (tmpt - t0)/ nrepeat; */
-       /* t /= 2; /\* Normal ping-pong *\/ */
-       ttotal = (When() - t0) / 2;
-       Reset(&args);
+	 /* t is the 1-directional trasmission time */
+	 /* double tmpt = When();  */
+	 /* t = (tmpt - t0)/ nrepeat; */
+	 /* t /= 2; /\* Normal ping-pong *\/ */
+	 ttotal = (When() - t0) / 2;
+	 Reset(&args);
 
 /* NOTE: NetPIPE does each data point TRIALS times, bouncing the message
  * nrepeats times for each trial, then reports the lowest of the TRIALS
  * times.  -Dave Turner
  */
-       //bwdata[n].t = MIN(bwdata[n].t, t);
-       tput = MAX(tput, (totalbufflen*CHARSIZE) / (ttotal * 1024 * 1024));
+	 //bwdata[n].t = MIN(bwdata[n].t, t);
+	 tput = MAX(tput, (totalbufflen*CHARSIZE) / (ttotal * 1024 * 1024));
+       }
+       fprintf(stdout, "%8lld %8.2lf Mbps\n", msgsize, tput);
      }
    }
    else if( args.rcv )
    {
-     /*
-       This is the receiver: receive the block TRIALS times, and
-       if we are not streaming, send the block back to the
-       sender.
-     */
-     for (i = 0; i < (integCheck ? 1 : TRIALS); i++)
+     for (msgsize = start; msgsize < end; msgsize++)
      {
-       if(randrun) srand(0xdeadbeef);
-       /* Flush the cache using the dummy buffer */
-       if (!args.cache)
-	 flushcache(memcache, MEMSIZE/sizeof(int));
-
-       Sync(&args);
-
-       t0 = When();
-       for (j = 0; j < nrepeat; j++)
+       /*
+	 This is the receiver: receive the block TRIALS times, and
+	 if we are not streaming, send the block back to the
+	 sender.
+       */
+       for (i = 0; i < (integCheck ? 1 : TRIALS); i++)
        {
-	 if(randrun) {
-	   args.bufflen = (rand()%(end-start))+start;
+	 /* Flush the cache using the dummy buffer */
+	 if (!args.cache)
+	   flushcache(memcache, MEMSIZE/sizeof(int));
+
+	 Sync(&args);
+
+	 t0 = When();
+	 for (j = 0; j < nrepeat; j++)
+	 {
+	   args.bufflen = msgsize;
 	   len_buf_align = args.bufflen;
 	   if(bufalign != 0)
 	     len_buf_align += bufalign - args.bufflen % bufalign;
-	 }
-	 RecvData(&args);
+	   
+	   RecvData(&args);
 
-	 if (!args.cache)
-	 { 
-	   AdvanceRecvPtr(&args, len_buf_align);
-	 }
+	   if (!args.cache)
+	   { 
+	     AdvanceRecvPtr(&args, len_buf_align);
+	   }
                         
-	 if (!streamopt)
-	 {
-	   SendData(&args);
-	   if(!args.cache) 
-	     AdvanceSendPtr(&args, len_buf_align);
+	   if (!streamopt)
+	   {
+	     SendData(&args);
+	     if(!args.cache) 
+	       AdvanceSendPtr(&args, len_buf_align);
+	   }
 	 }
+	 t = (When() - t0)/ nrepeat;
+	 t /= 2; /* Normal ping-pong */
+	 Reset(&args);
+	 bwdata[n].t = MIN(bwdata[n].t, t);
        }
-       t = (When() - t0)/ nrepeat;
-       t /= 2; /* Normal ping-pong */
-       Reset(&args);
-       bwdata[n].t = MIN(bwdata[n].t, t);
      }
-   }   
+   }
 
    /* Streaming mode doesn't really calculate correct latencies
     * for small message sizes, and on some nics we can get
@@ -709,11 +712,6 @@ int main(int argc, char **argv)
    bwdata[n].bps = bwdata[n].bits / (bwdata[n].t * 1024 * 1024);
    bwdata[n].repeat = nrepeat;
    */
-   if (args.tr) {
-     fprintf(stderr, " %8.2lf Mbps\n", tput);
-     fprintf(out,"%8lld %8.2lf %12.8lf",
-	     totalbufflen, tput, 0.0);
-   }
    
    /*if (args.tr)
    {
@@ -736,10 +734,10 @@ int main(int argc, char **argv)
             
    /*if ( args.tr ) {
      if(integCheck) {
-       fprintf(stderr, " Integrity check passed\n");
+       fprintf(stdout, " Integrity check passed\n");
 
      } else {
-       fprintf(stderr," %8.2lf Mbps in %10.2lf usec\n", 
+       fprintf(stdout," %8.2lf Mbps in %10.2lf usec\n", 
 	       bwdata[n].bps, tlast*1.0e6);
      }
      }*/
@@ -750,7 +748,7 @@ int main(int argc, char **argv)
    if (!args.cache) {
         FreeBuff(args.s_buff_orig, args.r_buff_orig);
    }
-   if (args.tr) fclose(out);
+   //if (args.tr) fclose(out);
          
     CleanUp(&args);
     return 0;
@@ -837,18 +835,18 @@ void VerifyIntegrity(ArgStruct *p)
 
   if(!integrityVerified) {
     
-    fprintf(stderr, "Integrity check failed: Expecting %d but received %d\n",
+    fprintf(stdout, "Integrity check failed: Expecting %d but received %d\n",
             i, *( (int*)p->r_ptr + i ) );
 
     /* Dump argstruct */
     /*
-    fprintf(stderr, " args struct:\n");
-    fprintf(stderr, "  r_buff_orig %p [%c%c%c...]\n", p->r_buff_orig, p->r_buff_orig[i], p->r_buff_orig[i+1], p->r_buff_orig[i+2]);
-    fprintf(stderr, "  r_buff      %p [%c%c%c...]\n", p->r_buff,      p->r_buff[i],      p->r_buff[i+1],      p->r_buff[i+2]);
-    fprintf(stderr, "  r_ptr       %p [%c%c%c...]\n", p->r_ptr,       p->r_ptr[i],       p->r_ptr[i+1],       p->r_ptr[i+2]);
-    fprintf(stderr, "  s_buff_orig %p [%c%c%c...]\n", p->s_buff_orig, p->s_buff_orig[i], p->s_buff_orig[i+1], p->s_buff_orig[i+2]);
-    fprintf(stderr, "  s_buff      %p [%c%c%c...]\n", p->s_buff,      p->s_buff[i],      p->s_buff[i+1],      p->s_buff[i+2]);
-    fprintf(stderr, "  s_ptr       %p [%c%c%c...]\n", p->s_ptr,       p->s_ptr[i],       p->s_ptr[i+1],       p->s_ptr[i+2]);
+    fprintf(stdout, " args struct:\n");
+    fprintf(stdout, "  r_buff_orig %p [%c%c%c...]\n", p->r_buff_orig, p->r_buff_orig[i], p->r_buff_orig[i+1], p->r_buff_orig[i+2]);
+    fprintf(stdout, "  r_buff      %p [%c%c%c...]\n", p->r_buff,      p->r_buff[i],      p->r_buff[i+1],      p->r_buff[i+2]);
+    fprintf(stdout, "  r_ptr       %p [%c%c%c...]\n", p->r_ptr,       p->r_ptr[i],       p->r_ptr[i+1],       p->r_ptr[i+2]);
+    fprintf(stdout, "  s_buff_orig %p [%c%c%c...]\n", p->s_buff_orig, p->s_buff_orig[i], p->s_buff_orig[i+1], p->s_buff_orig[i+2]);
+    fprintf(stdout, "  s_buff      %p [%c%c%c...]\n", p->s_buff,      p->s_buff[i],      p->s_buff[i+1],      p->s_buff[i+2]);
+    fprintf(stdout, "  s_ptr       %p [%c%c%c...]\n", p->s_ptr,       p->s_ptr[i],       p->s_ptr[i+1],       p->s_ptr[i+2]);
     */
     exit(-1);
 
@@ -1021,7 +1019,7 @@ void MyMalloc(ArgStruct *p, int bufflen, int soffset, int roffset)
 {
     if((p->r_buff=(char *)malloc(bufflen+MAX(soffset,roffset)))==(char *)NULL)
     {
-        fprintf(stderr,"couldn't allocate memory for receive buffer\n");
+        fprintf(stdout,"couldn't allocate memory for receive buffer\n");
         exit(-1);
     }
        /* if pcache==1, use cache, so this line happens only if flushing cache */
@@ -1029,7 +1027,7 @@ void MyMalloc(ArgStruct *p, int bufflen, int soffset, int roffset)
     if(!p->cache) /* Allocate second buffer if limiting cache */
       if((p->s_buff=(char *)malloc(bufflen+soffset))==(char *)NULL)
       {
-          fprintf(stderr,"couldn't allocate memory for send buffer\n");
+          fprintf(stdout,"couldn't allocate memory for send buffer\n");
           exit(-1);
       }
 }
