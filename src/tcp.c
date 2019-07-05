@@ -97,9 +97,9 @@ void Setup(ArgStruct *p)
                  (char *) &recv_size, (void *) &sizeofint);
  
  if(!doing_reset) {
-   fprintf(stderr,"Send and receive buffers are %d and %d bytes\n",
-           send_size, recv_size);
-   fprintf(stderr, "(A bug in Linux doubles the requested buffer sizes)\n");
+   //fprintf(stderr,"Send and receive buffers are %d and %d bytes\n",
+   //        send_size, recv_size);
+   //fprintf(stderr, "(A bug in Linux doubles the requested buffer sizes)\n");
  }
 
  if( p->tr ) {                             /* Primary transmitter */
