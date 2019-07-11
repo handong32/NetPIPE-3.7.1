@@ -69,6 +69,8 @@ int main(int argc, char **argv)
     int         integCheck=0;   /* Integrity check                           */
     unsigned long long int totalbufflen = 0;
     int randrun = 0;
+    int currlen = 0;
+    int seed = 0xdeadbeef;
     
     /* Initialize vars that may change from default due to arguments */
 
@@ -77,7 +79,7 @@ int main(int argc, char **argv)
     /* Let modules initialize related vars, and possibly call a library init
        function that requires argc and argv */
 
-    srand(0xdeadbeef);
+    
     Init(&args, &argc, &argv);   /* This will set args.tr and args.rcv */
 
     args.preburst = 0; /* Default to not bursting preposted receives */
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
 #if ! defined(TCGMSG)
 
     /* Parse the arguments. See Usage for description */
-    while ((c = getopt(argc, argv, "xAXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:")) != -1)
+    while ((c = getopt(argc, argv, "xAXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:Y:")) != -1)
     {
         switch(c)
         {
@@ -365,16 +367,19 @@ int main(int argc, char **argv)
 		      printf("Enableing debug wait!\n");
 		      printf("Attach to pid %d and set debug_wait to 0 to conttinue\n", getpid());
 		      break;
-	case 'x':
-	  randrun = 1;
-	  break;
-	  
+	    case 'x':
+	      randrun = 1;
+	      break;
+	    case 'Y':
+	      seed = atoi(optarg);
+	      break;
 	    default: 
                      PrintUsage(); 
                      exit(-12);
        }
-   }
-
+    }
+    srand(seed);
+    
    while(debug_wait){
 	   for(i=0;i<10000;i++){};
    	};
@@ -559,8 +564,8 @@ int main(int argc, char **argv)
    if (randrun) {
      args.bufflen = (rand()%(end-start))+start;
      if( args.tr )
-       fprintf(stderr,"%3d: random bytes between (%d, %d) %6d times --> ",
-	       n, start, end, nrepeat);
+       fprintf(stderr,"%3d: random (seed=0x%X) bytes until %d\n",
+	       n, seed, end);
    } else {
      args.bufflen = start;
    
@@ -602,7 +607,7 @@ int main(int argc, char **argv)
      */
      for (i = 0; i < TRIALS; i++)
      {
-       if(randrun) srand(0xdeadbeef);
+       //if(randrun) srand(0xdeadbeef);
        /* Flush the cache using the dummy buffer */
        if (!args.cache)
 	 flushcache(memcache, MEMSIZE/sizeof(int));
@@ -610,14 +615,23 @@ int main(int argc, char **argv)
        Sync(&args);
        totalbufflen = 0;
        t0 = When();
-       for (j = 0; j < nrepeat; j++)
+       currlen = 0;
+       while(currlen < end)
        {
 	 if(randrun) {
-	   args.bufflen = (rand()%(end-start))+start;
+	   int tmp = rand()%end;
+	   if((tmp + currlen) < end) {
+	     args.bufflen = tmp;
+	   } else {
+	     args.bufflen = end - currlen;
+	   }
+	   currlen += tmp;
 	   len_buf_align = args.bufflen;
 	   if(bufalign != 0)
 	     len_buf_align += bufalign - args.bufflen % bufalign;
 	 }
+	 
+	 printf("args.bufflen = %d\n", args.bufflen);
 	 totalbufflen += args.bufflen;
 	 
 	 SendData(&args);
@@ -656,9 +670,9 @@ int main(int argc, char **argv)
        if we are not streaming, send the block back to the
        sender.
      */
-     for (i = 0; i < (integCheck ? 1 : TRIALS); i++)
+     for (i = 0; i <  TRIALS; i++)
      {
-       if(randrun) srand(0xdeadbeef);
+       //if(randrun) srand(0xdeadbeef);
        /* Flush the cache using the dummy buffer */
        if (!args.cache)
 	 flushcache(memcache, MEMSIZE/sizeof(int));
@@ -666,14 +680,22 @@ int main(int argc, char **argv)
        Sync(&args);
 
        t0 = When();
-       for (j = 0; j < nrepeat; j++)
+       currlen = 0;
+       while(currlen < end)
        {
 	 if(randrun) {
-	   args.bufflen = (rand()%(end-start))+start;
+	   int tmp = rand()%end;
+	   if((tmp + currlen) < end) {
+	     args.bufflen = tmp;
+	   } else {
+	     args.bufflen = end - currlen;
+	   }
+	   currlen += tmp;
 	   len_buf_align = args.bufflen;
 	   if(bufalign != 0)
 	     len_buf_align += bufalign - args.bufflen % bufalign;
 	 }
+	 
 	 RecvData(&args);
 
 	 if (!args.cache)
@@ -711,8 +733,8 @@ int main(int argc, char **argv)
    */
    if (args.tr) {
      fprintf(stderr, " %8.2lf Mbps\n", tput);
-     fprintf(out,"%8lld %8.2lf %12.8lf",
-	     totalbufflen, tput, 0.0);
+     fprintf(out,"%8lld %8.2lf",
+	     totalbufflen, tput);
    }
    
    /*if (args.tr)
