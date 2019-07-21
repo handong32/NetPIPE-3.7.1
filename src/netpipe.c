@@ -61,8 +61,9 @@ int main(int argc, char **argv)
 
     double      t, t0, t1, t2,  /* Time variables                            */
                 tlast,          /* Time for the last transmission            */
-                latency;        /* Network message latency                   */
-
+                latency,        /* Network message latency                   */
+                tstart, tend;
+    
     Data        bwdata[NSAMP];  /* Bandwidth curve data                      */
 
     int         integCheck=0;   /* Integrity check                           */
@@ -580,7 +581,7 @@ int main(int argc, char **argv)
     * set.  Thus we make some special allowances in the transmit 
     * section that are not in the receive section.
     */
-   
+   tstart = When();
    if( args.tr)
    {
      /*
@@ -676,15 +677,16 @@ int main(int argc, char **argv)
    bwdata[n].bits = args.bufflen * CHARSIZE * (1+args.bidir);
    bwdata[n].bps = bwdata[n].bits / (bwdata[n].t * 1024 * 1024);
    bwdata[n].repeat = nrepeat;
-            
+
+   tend = When();
    if (args.tr)
    {
      if(integCheck) {
        fprintf(out,"%8d %d", bwdata[n].bits / 8, nrepeat);
 
      } else {
-       fprintf(out,"%8d %lf %12.8lf",
-	       bwdata[n].bits / 8, bwdata[n].bps, bwdata[n].t);
+       fprintf(out,"%8d %lf %.8lf %.6lf",
+	       bwdata[n].bits / 8, bwdata[n].bps, bwdata[n].t, tend-tstart);
 
      }
      fprintf(out, "\n");
@@ -701,8 +703,8 @@ int main(int argc, char **argv)
        fprintf(stderr, " Integrity check passed\n");
 
      } else {
-       fprintf(stderr," %8.2lf Mbps in %10.2lf usec\n", 
-	       bwdata[n].bps, tlast*1.0e6);
+       fprintf(stderr," %8.2lf Mbps in %10.2lf usec, %.6lf sec total\n", 
+	       bwdata[n].bps, tlast*1.0e6, tend-tstart);
      }
    }
  
