@@ -26,6 +26,11 @@
 #include "mplite.h" /* Included for the malloc wrapper to protect from */
 #endif
 
+int TIME_EXIT_LOOP = 0;
+
+void set_loop_exit(int alrm_sig) {
+  TIME_EXIT_LOOP = 1;
+}
 
 extern char *optarg;
 
@@ -55,8 +60,9 @@ int main(int argc, char **argv)
                 end=MAXINT,     /* Ending value for signature curve          */
                 streamopt=0,    /* Streaming mode flag                       */
                 reset_connection,/* Reset the connection between trials      */
-		debug_wait=0;	/* spin and wait for a debugger		     */
-   
+                debug_wait=0,	/* spin and wait for a debugger		     */
+                nsecs=5;
+      
     ArgStruct   args;           /* Arguments for all the calls               */
 
     double      t, t0, t1, t2,  /* Time variables                            */
@@ -98,7 +104,7 @@ int main(int argc, char **argv)
 #if ! defined(TCGMSG)
 
     /* Parse the arguments. See Usage for description */
-    while ((c = getopt(argc, argv, "AXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:")) != -1)
+    while ((c = getopt(argc, argv, "AXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:T:")) != -1)
     {
         switch(c)
         {
@@ -363,7 +369,10 @@ int main(int argc, char **argv)
 		      printf("Enableing debug wait!\n");
 		      printf("Attach to pid %d and set debug_wait to 0 to conttinue\n", getpid());
 		      break;
-
+	    case 'T':
+	      nsecs = atoi(optarg);
+	      printf("Sending for %d seconds\n", nsecs);
+	      break;
             default: 
                      PrintUsage(); 
                      exit(-12);
@@ -554,8 +563,8 @@ int main(int argc, char **argv)
    args.bufflen = start;
      
    if( args.tr )
-     fprintf(stderr,"%3d: %7d bytes %6d times --> ",
-	     n,args.bufflen,nrepeat);
+     fprintf(stderr,"%3d: %7d bytes %6d secs --> ",
+	     n,args.bufflen,nsecs);
 
    /* this isn't truly set up for offsets yet */
    /* Size of an aligned memory block including trailing padding */
@@ -581,7 +590,8 @@ int main(int argc, char **argv)
     * set.  Thus we make some special allowances in the transmit 
     * section that are not in the receive section.
     */
-   tstart = When();
+   
+
    if( args.tr)
    {
      /*
@@ -596,8 +606,14 @@ int main(int argc, char **argv)
 	 flushcache(memcache, MEMSIZE/sizeof(int));
 
        Sync(&args);
+       
+       signal(SIGALRM, set_loop_exit);
+       alarm((unsigned int)nsecs);
+       
        t0 = When();
-       for (j = 0; j < nrepeat; j++)
+       //for (j = 0; j < nrepeat; j++)
+       nrepeat = 0;
+       while(TIME_EXIT_LOOP == 0)
        {
 	 SendData(&args);
 	 if (!streamopt)
@@ -611,12 +627,14 @@ int main(int argc, char **argv)
 	  */
 	 if (!args.cache)
 	   AdvanceSendPtr(&args, len_buf_align);
-       }
 
+	 nrepeat ++;
+       }
+       
        /* t is the 1-directional trasmission time */
        t = (When() - t0)/ nrepeat;
        t /= 2; /* Normal ping-pong */
-       Reset(&args);
+       //Reset(&args);
 
 /* NOTE: NetPIPE does each data point TRIALS times, bouncing the message
  * nrepeats times for each trial, then reports the lowest of the TRIALS
@@ -632,6 +650,7 @@ int main(int argc, char **argv)
        if we are not streaming, send the block back to the
        sender.
      */
+     
      for (i = 0; i < (integCheck ? 1 : TRIALS); i++)
      {
        /* Flush the cache using the dummy buffer */
@@ -641,7 +660,8 @@ int main(int argc, char **argv)
        Sync(&args);
 
        t0 = When();
-       for (j = 0; j < nrepeat; j++)
+       //for (j = 0; j < nrepeat; j++)
+       while(1)
        {
 	 RecvData(&args);
 
@@ -678,15 +698,14 @@ int main(int argc, char **argv)
    bwdata[n].bps = bwdata[n].bits / (bwdata[n].t * 1024 * 1024);
    bwdata[n].repeat = nrepeat;
 
-   tend = When();
    if (args.tr)
    {
      if(integCheck) {
        fprintf(out,"%8d %d", bwdata[n].bits / 8, nrepeat);
 
      } else {
-       fprintf(out,"%8d %lf %.8lf %.6lf",
-	       bwdata[n].bits / 8, bwdata[n].bps, bwdata[n].t, tend-tstart);
+       fprintf(out,"%8d %lf %.8lf %lld",
+	       bwdata[n].bits / 8, bwdata[n].bps, bwdata[n].t, (unsigned long long)nrepeat);
 
      }
      fprintf(out, "\n");
@@ -703,8 +722,8 @@ int main(int argc, char **argv)
        fprintf(stderr, " Integrity check passed\n");
 
      } else {
-       fprintf(stderr," %8.2lf Mbps in %10.2lf usec, %.6lf sec total\n", 
-	       bwdata[n].bps, tlast*1.0e6, tend-tstart);
+       fprintf(stderr," %8.2lf Mbps in %10.2lf usec\n", 
+	       bwdata[n].bps, tlast*1.0e6);
      }
    }
  
@@ -715,7 +734,8 @@ int main(int argc, char **argv)
         FreeBuff(args.s_buff_orig, args.r_buff_orig);
    }
    if (args.tr) fclose(out);
-         
+
+   exit(-1);
     CleanUp(&args);
     return 0;
 }
