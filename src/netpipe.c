@@ -61,14 +61,15 @@ int main(int argc, char **argv)
                 streamopt=0,    /* Streaming mode flag                       */
                 reset_connection,/* Reset the connection between trials      */
                 debug_wait=0,	/* spin and wait for a debugger		     */
-                nsecs=5;
+                nsecs=1,
+                local_nrepeat;
       
     ArgStruct   args;           /* Arguments for all the calls               */
 
     double      t, t0, t1, t2,  /* Time variables                            */
                 tlast,          /* Time for the last transmission            */
                 latency,        /* Network message latency                   */
-                tstart, tend;
+                tstart, tend, local_t0;
     
     Data        bwdata[NSAMP];  /* Bandwidth curve data                      */
 
@@ -611,9 +612,12 @@ int main(int argc, char **argv)
        alarm((unsigned int)nsecs);
        
        t0 = When();
+       local_t0 = When();
        //for (j = 0; j < nrepeat; j++)
        nrepeat = 0;
-       while(TIME_EXIT_LOOP == 0)
+       local_nrepeat = 0;
+       
+       while(1)
        {
 	 SendData(&args);
 	 if (!streamopt)
@@ -629,6 +633,20 @@ int main(int argc, char **argv)
 	   AdvanceSendPtr(&args, len_buf_align);
 
 	 nrepeat ++;
+	 local_nrepeat ++;
+	 
+	 if(TIME_EXIT_LOOP) {
+	   //double local_t = (When() - local_t0)/ local_nrepeat;
+	   double local_t = (1.0)/ local_nrepeat;
+	   local_t /= 2; /* Normal ping-pong */
+	   int lbits = args.bufflen * CHARSIZE * (1+args.bidir);
+	   double lbps = lbits / (local_t * 1024 * 1024);
+	   fprintf(stderr," %8.2lf Mbps\n", lbps);
+	   local_nrepeat = 0;
+	   //local_t0 = When();
+	   TIME_EXIT_LOOP=0;
+	   alarm((unsigned int)nsecs);
+	 }
        }
        
        /* t is the 1-directional trasmission time */
