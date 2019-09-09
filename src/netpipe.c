@@ -96,12 +96,11 @@ int main(int argc, char **argv)
     args.use_sdp=0; /* default to no SDP */
     args.port = DEFPORT; /* just in case the user doesn't set this. */
 
-
     /* TCGMSG launches NPtcgmsg with a -master master_hostname
      * argument, so ignore all arguments and set them manually 
      * in netpipe.c instead.
      */
-
+    
 #if ! defined(TCGMSG)
 
     /* Parse the arguments. See Usage for description */
@@ -640,7 +639,7 @@ int main(int argc, char **argv)
 	   double local_t = (1.0)/ local_nrepeat;
 	   local_t /= 2; /* Normal ping-pong */
 	   int lbits = args.bufflen * CHARSIZE * (1+args.bidir);
-	   double lbps = lbits / (local_t * 1024 * 1024);
+	   double lbps = (lbits / (local_t * 1024 * 1024)) / (float)nsecs;
 	   fprintf(stderr," %8.2lf Mbps\n", lbps);
 	   local_nrepeat = 0;
 	   //local_t0 = When();
