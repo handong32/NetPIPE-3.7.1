@@ -13,10 +13,6 @@
 /*****************************************************************************/
 #include    "netpipe.h"
 
-#if defined (MPLITE)
-#include "mplite.h"
-#endif
-
 
 int doing_reset = 0;
 
@@ -408,7 +404,6 @@ void CleanUp(ArgStruct *p)
       write(p->commfd,quit,5);
       close(p->commfd);
       close(p->servicefd);
-
    }
 }
 
@@ -423,7 +418,7 @@ void Reset(ArgStruct *p)
     doing_reset = 1;
 
     /* Close the sockets */
-
+    
     CleanUp(p);
 
     /* Now open and connect new sockets */
@@ -433,9 +428,3 @@ void Reset(ArgStruct *p)
   }
 
 }
-
-void AfterAlignmentInit(ArgStruct *p)
-{
-
-}
-

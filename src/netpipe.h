@@ -22,6 +22,9 @@
 #include <sys/resource.h>   /* getrusage() */
 #include <stdlib.h>         /* malloc(3) */
 #include <unistd.h>         /* getopt, read, write, ... */
+#include <pthread.h>
+
+#define NUM_THREADS 1
 
 /* Handle the case of building on MacOS X */
 #if defined(__APPLE__)
@@ -307,11 +310,13 @@ struct argstruct
     char     *s_ptr;        /* Pointer to current location in send buffer    */
 
     int      bufflen,       /* Length of transmitted buffer                  */
-             upper,         /* Upper limit to bufflen                        */
-             tr,rcv,        /* Transmit and Recv flags, or maybe neither     */
-             bidir,         /* Bi-directional flag                           */
-             nbuff;         /* Number of buffers to transmit                 */
-
+      lower,
+      upper,         /* Upper limit to bufflen                        */
+      tr,rcv,        /* Transmit and Recv flags, or maybe neither     */
+      bidir,         /* Bi-directional flag                           */
+      nbuff, randrun,         /* Number of buffers to transmit                 */
+      nrepeat_const, streamopt;
+  
     int      source_node;   /* Set to -1 (MPI_ANY_SOURCE) if -z specified    */
     int      preburst;      /* Burst preposted receives before timed runs    */
     int      reset_conn;    /* Reset connection flag                         */
@@ -332,6 +337,11 @@ struct data
     int    repeat;
 };
 
+struct thread_ds {
+  int tid;
+  double stuff;
+};
+  
 double When();
 
 void Init(ArgStruct *p, int* argc, char*** argv);

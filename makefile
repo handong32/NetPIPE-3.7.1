@@ -81,7 +81,7 @@ clean:
 
 
 tcp: $(SRC)/tcp.c $(SRC)/netpipe.c $(SRC)/netpipe.h 
-	$(CC) $(CFLAGS) $(SRC)/netpipe.c $(SRC)/tcp.c -DTCP -o NPtcp -I$(SRC)
+	$(CC) $(CFLAGS) -lpthread -pthread $(SRC)/netpipe.c $(SRC)/tcp.c -DTCP -o NPtcp -I$(SRC)
 
 tcp6: $(SRC)/tcp.c $(SRC)/netpipe.c $(SRC)/netpipe.h 
 	$(CC) $(CFLAGS) $(SRC)/netpipe.c $(SRC)/tcp6.c -DTCP6 \
