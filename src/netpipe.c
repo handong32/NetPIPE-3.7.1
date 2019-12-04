@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 #if ! defined(TCGMSG)
 
     /* Parse the arguments. See Usage for description */
-    while ((c = getopt(argc, argv, "xAXSO:rIiPszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:")) != -1)
+    while ((c = getopt(argc, argv, "xAXSO:rIiszgfaB2h:p:o:l:u:b:m:n:t:c:d:D:P:")) != -1)
     {
         switch(c)
         {
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
                       }
                       break;
 #endif
-	    case 'P': 
+	    case 'P':
 		      args.port = atoi(optarg);
 		      break;
 
