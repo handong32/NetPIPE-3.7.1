@@ -464,8 +464,9 @@ int main(int argc, char **argv)
    args.s_ptr = args.s_buff_orig = args.s_buff;
       
    AfterAlignmentInit(&args);  /* MPI-2 needs this to create a window */
-   
-   Sync(&args);    /* Sync to prevent race condition in armci module */
+
+   /* Sync to prevent race condition in armci module */
+   //Sync(&args);    
 
    /* For simplicity's sake, even if the real test below will be done in
     * bi-directional mode, we still do the ping-pong one-way-at-a-time test
@@ -473,7 +474,7 @@ int main(int argc, char **argv)
     * longer to send data in both directions at once than it does to send data
     * one way at a time, this shouldn't be too far off anyway.
     */
-   t0 = When();
+   /*t0 = When();
       for( n=0; n<100; n++) {
          if( args.tr) {
             SendData(&args);
@@ -487,7 +488,7 @@ int main(int argc, char **argv)
             SendData(&args);
          }
       }
-   tlast = (When() - t0)/200;
+   tlast = (When() - t0)/200;*/
 
    /* Sync up and Reset before freeing the buffers */
 
