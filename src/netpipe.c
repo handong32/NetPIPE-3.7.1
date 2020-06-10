@@ -26,11 +26,25 @@
 #include "mplite.h" /* Included for the malloc wrapper to protect from */
 #endif
 
+inline unsigned long long rdtsc()
+{
+  unsigned long long tsc;
+  asm volatile("rdtsc;"
+               "shl $32,%%rdx;"
+               "or %%rdx,%%rax"
+               : "=a"(tsc)
+               :
+               : "%rcx", "%rdx");
+  return tsc;
+}
+
+unsigned long long work_start;
+unsigned long long work_end;
 
 extern char *optarg;
 
 int main(int argc, char **argv)
-{
+{  
     FILE        *out;           /* Output data file                          */
     char        s[255],s2[255],delim[255],*pstr; /* Generic strings          */
     int         *memcache;      /* used to flush cache                       */
@@ -68,6 +82,10 @@ int main(int argc, char **argv)
 
     int         integCheck=0;   /* Integrity check                           */
 
+    work_start = 0;
+    work_end = 0;    
+    
+    
     /* Initialize vars that may change from default due to arguments */
 
     strcpy(s, "np.out");   /* Default output file */
@@ -75,7 +93,7 @@ int main(int argc, char **argv)
     /* Let modules initialize related vars, and possibly call a library init
        function that requires argc and argv */
 
-
+    
     Init(&args, &argc, &argv);   /* This will set args.tr and args.rcv */
 
     args.preburst = 0; /* Default to not bursting preposted receives */
@@ -642,10 +660,13 @@ int main(int argc, char **argv)
        Sync(&args);
 
        t0 = When();
+       
        for (j = 0; j < nrepeat; j++)
        {
 	 RecvData(&args);
-
+	 if(j == 0) { work_start = rdtsc(); }
+	 if(j == nrepeat-1) { work_end = rdtsc(); }
+	 
 	 if (!args.cache)
 	 { 
 	   AdvanceRecvPtr(&args, len_buf_align);
@@ -658,7 +679,9 @@ int main(int argc, char **argv)
 	     AdvanceSendPtr(&args, len_buf_align);
 	 }
        }
-       t = (When() - t0)/ nrepeat;
+       work_end = rdtsc();
+       t = (When() - t0)/ nrepeat;       
+       
        t /= 2; /* Normal ping-pong */
        Reset(&args);
        bwdata[n].t = MIN(bwdata[n].t, t);
@@ -692,6 +715,8 @@ int main(int argc, char **argv)
      }
      fprintf(out, "\n");
      fflush(out);
+   } else {
+     printf("SERVER_WORKLOAD_PERIOD: %lu %lu\n", work_start, work_end);
    }
     
    /* Free using original buffer addresses since we may have aligned
