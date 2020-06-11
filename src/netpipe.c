@@ -21,6 +21,7 @@
 /*****************************************************************************/
 
 #include "netpipe.h"
+#include "rapl-read.c"
 
 #if defined(MPLITE)
 #include "mplite.h" /* Included for the malloc wrapper to protect from */
@@ -40,6 +41,8 @@ inline unsigned long long rdtsc()
 
 unsigned long long work_start;
 unsigned long long work_end;
+double pk0_joules;
+double pk1_joules;
 
 extern char *optarg;
 
@@ -84,7 +87,8 @@ int main(int argc, char **argv)
 
     work_start = 0;
     work_end = 0;    
-    
+    pk0_joules = 0.0;
+    pk1_joules = 0.0;
     
     /* Initialize vars that may change from default due to arguments */
 
@@ -423,8 +427,8 @@ int main(int argc, char **argv)
       exit(-1);      
 
    }
-#endif
-
+#endif   
+   
    if (start > end)
    {
        fprintf(stderr, "Start MUST be LESS than end\n");
@@ -651,6 +655,11 @@ int main(int argc, char **argv)
        if we are not streaming, send the block back to the
        sender.
      */
+     int cpu_model=detect_cpu();
+     int core=0;
+     detect_packages();
+     int result=rapl_msr(core,cpu_model);
+     
      for (i = 0; i < (integCheck ? 1 : TRIALS); i++)
      {
        /* Flush the cache using the dummy buffer */
@@ -664,8 +673,16 @@ int main(int argc, char **argv)
        for (j = 0; j < nrepeat; j++)
        {
 	 RecvData(&args);
-	 if(j == 0) { work_start = rdtsc(); }
-	 if(j == nrepeat-1) { work_end = rdtsc(); }
+	 if(j == 0) {
+	   work_start = rdtsc();
+	   pk0_joules = read_package(0);
+	   pk1_joules = read_package(1);	   
+	 }
+	 if(j == nrepeat-1) {
+	   work_end = rdtsc();
+	   pk0_joules = read_package(0) - pk0_joules;
+	   pk1_joules = read_package(1) - pk1_joules;
+	 }
 	 
 	 if (!args.cache)
 	 { 
@@ -716,7 +733,8 @@ int main(int argc, char **argv)
      fprintf(out, "\n");
      fflush(out);
    } else {
-     printf("SERVER_WORKLOAD_PERIOD: %lu %lu\n", work_start, work_end);
+     printf("SERVER_WORKLOAD_PERIOD: %lu %lu %.6f %.6f\n", work_start, work_end,
+	    pk0_joules, pk1_joules);
    }
     
    /* Free using original buffer addresses since we may have aligned
