@@ -41,6 +41,8 @@ inline unsigned long long rdtsc()
 
 unsigned long long work_start;
 unsigned long long work_end;
+long long pk0_start;
+long long pk1_start;
 double pk0_joules;
 double pk1_joules;
 
@@ -89,6 +91,8 @@ int main(int argc, char **argv)
     work_end = 0;    
     pk0_joules = 0.0;
     pk1_joules = 0.0;
+    pk0_start = 0;
+    pk1_start = 0;
     
     /* Initialize vars that may change from default due to arguments */
 
@@ -675,13 +679,19 @@ int main(int argc, char **argv)
 	 RecvData(&args);
 	 if(j == 0) {
 	   work_start = rdtsc();
-	   pk0_joules = read_package(0);
-	   pk1_joules = read_package(1);	   
+	   pk0_start = read_pkg_energy(0);
+	   pk1_start = read_pkg_energy(1);
+	   
+	   //pk0_joules = read_package(0);
+	   //pk1_joules = read_package(1);	   
 	 }
 	 if(j == nrepeat-1) {
 	   work_end = rdtsc();
-	   pk0_joules = read_package(0) - pk0_joules;
-	   pk1_joules = read_package(1) - pk1_joules;
+
+	   pk0_joules = calculate_energy(pk0_start, 0);
+	   pk0_joules = calculate_energy(pk1_start, 0);
+	   //pk0_joules = read_package(0) - pk0_joules;
+	   //pk1_joules = read_package(1) - pk1_joules;
 	 }
 	 
 	 if (!args.cache)

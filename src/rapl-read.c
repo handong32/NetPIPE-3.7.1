@@ -412,6 +412,29 @@ double read_package(int j) {
   return (double)result*cpu_energy_units[j];
 }
 
+long long read_pkg_energy(int j) {
+  int fd=open_msr(package_map[j]);
+  long long result=read_msr(fd,msr_pkg_energy_status);
+  close(fd);
+  return result;
+}
+
+double calculate_energy(long long start, int j) {
+  int fd=open_msr(package_map[j]);
+  long long end=read_msr(fd,msr_pkg_energy_status);
+  close(fd);
+
+  // overflow
+  if(end < start) {
+    return (double)((end+UINT32_MAX) - start) * cpu_energy_units[j];
+  }
+  return(double)(end - start) * cpu_energy_units[j];  
+}
+
+double convert_to_joules(long long x, int j) {
+  return (double)x*cpu_energy_units[j];
+}
+
 static int perf_event_open(struct perf_event_attr *hw_event_uptr,
                     pid_t pid, int cpu, int group_fd, unsigned long flags) {
 
