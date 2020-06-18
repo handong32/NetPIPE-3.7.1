@@ -689,7 +689,7 @@ int main(int argc, char **argv)
 	   work_end = rdtsc();
 
 	   pk0_joules = calculate_energy(pk0_start, 0);
-	   pk0_joules = calculate_energy(pk1_start, 0);
+	   pk1_joules = calculate_energy(pk1_start, 1);
 	   //pk0_joules = read_package(0) - pk0_joules;
 	   //pk1_joules = read_package(1) - pk1_joules;
 	 }
